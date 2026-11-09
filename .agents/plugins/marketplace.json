@@ -1,0 +1,10 @@
+{
+  "name": "personal-skills-studio",
+  "interface": {"displayName": "Skills Studio"},
+  "plugins": [{
+    "name": "skills-studio",
+    "source": {"source": "local", "path": "./plugins/skills-studio"},
+    "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+    "category": "Developer Tools"
+  }]
+}

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "skills-studio": {
+      "command": "/bin/sh",
+      "args": ["./scripts/launch.sh"],
+      "cwd": ".",
+      "enabled": true,
+      "env_vars": ["HOME", "CODEX_HOME", "CODEX_MCP_NODE_PATH", "SKILLS_STUDIO_CODEX_PATH", "PATH"],
+      "startup_timeout_sec": 15,
+      "tool_timeout_sec": 60
+    }
+  }
+}

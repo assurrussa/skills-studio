@@ -1,0 +1,36 @@
+{
+  "name": "skills-studio",
+  "version": "0.2.5",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check src/store.mjs && node --check src/provenance.mjs && node --check src/server.mjs && node --check ui/app.mjs && node --check ui/view.mjs && node --check ui/controller.mjs && node --check ui/project-picker.mjs && node --check ui/diff.mjs && node --check ui/chat.mjs && node --check ui/skill-menu.mjs && node --check src/actions.mjs && node --check src/locking.mjs && node --check src/plugins.mjs && node --check ui/preview.mjs && node --check ui/selection-menu.mjs && node --check src/app-server.mjs && node --check ui/side-chat.mjs && node --check ui/model-picker.mjs && node --check ui/skill-chats.mjs && node --check src/runtime-catalog.mjs && node --check src/health.mjs && node --check ui/catalog.mjs && node --check src/context.mjs && node --check ui/context.mjs && node --check src/locations.mjs",
+    "pretest": "npm run build"
+  },
+  "dependencies": {
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/theme-one-dark": "^6.1.3",
+    "@modelcontextprotocol/ext-apps": "^2.0.3",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "codemirror": "^6.0.2",
+    "js-tiktoken": "1.0.21",
+    "marked": "file:vendor/marked-17.0.5.tgz",
+    "smol-toml": "^1.9.1",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "jsdom": "^30.1.3"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/assurrussa/skills-studio.git"
+  },
+  "homepage": "https://github.com/assurrussa/skills-studio#readme",
+  "bugs": {
+    "url": "https://github.com/assurrussa/skills-studio/issues"
+  }
+}

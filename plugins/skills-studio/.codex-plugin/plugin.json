@@ -1,0 +1,33 @@
+{
+  "name": "skills-studio",
+  "version": "0.2.5",
+  "description": "Локальный менеджер скиллов с Markdown-редактором и выбором проекта Codex.",
+  "author": {
+    "name": "Skills Studio contributors"
+  },
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "markdown",
+    "editor",
+    "local",
+    "mcp-app"
+  ],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Skills Studio",
+    "shortDescription": "Доступность, источники и ревью навыков Codex",
+    "longDescription": "Каталог личных, проектных и плагинных навыков с состоянием Codex, исходными путями и местами подключения. Проверяйте Git-источники вручную и фиксируйте ревью содержания с основаниями. Изменение ресурсов требует повторного просмотра. Markdown-редактор, DIFF, резервные копии и помощник остаются под рукой. Переключение доступности личных навыков сохраняет файлы на месте. Данные хранятся локально; обновления источников автоматически не применяются.",
+    "developerName": "Skills Studio contributors",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "brandColor": "#737373",
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/icon.svg",
+    "logoDark": "./assets/icon-dark.svg"
+  }
+}

@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createServer } from '../src/server.mjs';
+import { ChatService } from '../src/app-server.mjs';
+
+test('the real MCP bridge exposes app-only chat tools and closes its child process', async t=>{
+  const stateDir=await mkdtemp(join(tmpdir(),'studio-chat-mcp-'));
+  const log=join(stateDir,'requests');
+  const chat=new ChatService({stateDir,resolveCLI:async()=>({path:process.execPath,version:'fixture',source:'test',args:[fileURLToPath(new URL('./fixtures/app-server.mjs',import.meta.url))]}),env:{...process.env,STUDIO_TEST_SIGNED_OUT:'0',STUDIO_TEST_LOG:log}});
+  const server=createServer({chat}),client=new Client({name:'test',version:'1'});
+  const [ct,st]=InMemoryTransport.createLinkedPair();
+  t.after(async()=>{await client.close();await server.close();await rm(stateDir,{recursive:true,force:true});});
+  await server.connect(st);await client.connect(ct);
+  const tools=(await client.listTools()).tools;
+  for(const name of ['chat_open','chat_poll','chat_send','chat_stop','chat_reset','chat_login','chat_close'])assert.deepEqual(tools.find(tool=>tool.name==='skills_studio.'+name)._meta.ui.visibility,['app']);
+  assert.equal(tools.find(tool=>tool.name==='skills_studio.chat_send').annotations.openWorldHint,true);
+  const call=(name,args={})=>client.callTool({name:'skills_studio.'+name,arguments:args});
+  const opened=await call('chat_open',{skillId:'one'});assert.equal(opened.isError,undefined);
+  const {sessionId}=opened.structuredContent;
+  const wrong=await call('chat_send',{sessionId,requestId:'wrong',question:'Hi',document:null});assert.equal(wrong.structuredContent.code,'CHAT_SKILL_MISMATCH');
+  const document={skill:{id:'one',name:'Example',path:'/skills/example/SKILL.md'},versions:{opened:'old',saved:'old',editor:'new'}};
+  const sent=await call('chat_send',{sessionId,requestId:'one',question:'Hi',document,effort:'high'});assert.equal(sent.isError,undefined);assert.equal(sent.structuredContent.pending,true);
+  const requests=(await readFile(log,'utf8')).trim().split('\n').map(JSON.parse);
+  assert.equal(requests.find(request=>request.method==='turn/start').params.effort,'high');
+  await call('chat_stop',{sessionId});
+  const state=await call('chat_poll',{sessionId});assert.equal(state.structuredContent.pending,false);
+  const child=chat.rpc.child;
+  await server.close();assert.ok(child.exitCode!==null||child.signalCode!==null,'the child process exited, including signal termination');
+});

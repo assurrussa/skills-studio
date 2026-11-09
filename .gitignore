@@ -1,0 +1,12 @@
+.DS_Store
+node_modules/
+*.tmp
+*.log
+.env
+.env.*
+!.env.example
+
+# Local Codex runtime files and the original, non-public screenshot.
+/.codex/
+/skills/system/
+/docs/images/skills-studio.png

@@ -1,0 +1,112 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { JSDOM } from 'jsdom';
+import { readFile } from 'node:fs/promises';
+
+test('selection context menu sends the chosen fragment without a layout bar and preserves edits on host rejection', async () => {
+  const html = await readFile(new URL('../ui/index.html', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../ui/style.css', import.meta.url), 'utf8');
+  const dom = new JSDOM(html.replace('/*__STYLE__*/', () => css), { pretendToBeVisual: true });
+  const win = dom.window;
+  for (const key of ['window','Window','Option','document','navigator','MutationObserver','HTMLElement','Element','Node','getComputedStyle','requestAnimationFrame','cancelAnimationFrame']) Object.defineProperty(globalThis, key, { configurable: true, value: key === 'window' ? win : typeof win[key] === 'function' && ['getComputedStyle','requestAnimationFrame','cancelAnimationFrame'].includes(key) ? win[key].bind(win) : win[key] });
+  win.Range.prototype.getClientRects = () => [];
+  win.Range.prototype.getBoundingClientRect = () => ({ x:0,y:0,left:0,top:0,right:0,bottom:0,width:0,height:0 });
+  win.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  win.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new win.Event('close')); };
+  const { mountStudio } = await import('../ui/view.mjs');
+  const { createSkillChats } = await import('../ui/skill-chats.mjs');
+  const sent = []; let reject = false;
+  const efforts=[{reasoningEffort:'medium',description:'Balanced'},{reasoningEffort:'high',description:'More reasoning'}];
+  const initial={revision:1,authenticated:true,status:'ready',messages:[],defaultReasoningEffort:'medium',models:[{model:'fixture',displayName:'Fixture',isDefault:true,supportedReasoningEfforts:[efforts[0]]},{model:'second',displayName:'Second model',supportedReasoningEfforts:efforts}],pending:false};
+  const states=new Map();
+  const chat=createSkillChats(async(name,args)=>{
+    if(name==='chat_open'){const state={...initial,sessionId:args.skillId};states.set(args.skillId,state);return state;}
+    if(name==='chat_poll')return states.get(args.sessionId);
+    if(name==='chat_close')return {};
+    if(name==='chat_reset'){const state={...states.get(args.sessionId),revision:states.get(args.sessionId).revision+1,messages:[]};states.set(args.sessionId,state);return state;}
+    if(name==='chat_send'){
+      if(reject)throw Error('Connection rejected');
+      const previous=states.get(args.sessionId);
+      sent.push(args);const state={...previous,revision:previous.revision+1,messages:[...previous.messages,{id:'q',role:'user',text:args.question},{id:'a',role:'assistant',text:'Hello **world**',status:'completed'}]};states.set(args.sessionId,state);return state;
+    }
+    throw Error(name);
+  },{pollMs:100000});
+  const ui = mountStudio({ chat, call: async (name, args) => {
+    if (name === 'open') return { projects: [], selectedProjectId: null, warnings: [] };
+    if (name === 'list') return { skills: [{ id:'one', name:'Example', scope:'global' },{id:'two',name:'Second',scope:'global'}], warnings: [] };
+    if (name === 'read') return { id:args.id, name:'Example', path:'/skills/example/SKILL.md', content:'# Original\nold\n', revision:'r1', readOnly:false };
+    throw new Error(`Unexpected backend write: ${name}`);
+  } });
+  try {
+    await ui.controller.initialize(); await ui.controller.open('one');
+    win.document.querySelector('#mode-edit').click();
+    ui.editor.dispatch({ changes:{ from:0, to:ui.editor.state.doc.length, insert:'# Edited\nnew\n' }, selection:{ anchor:9, head:12 } });
+    assert.equal(win.document.querySelector('#selection-actions'),null);
+    assert.equal(win.document.querySelector('#ask-dialog'),null,'chat never uses a modal dialog');
+    const menu=win.document.querySelector('#editor-selection-menu');
+    ui.editor.contentDOM.dispatchEvent(new win.MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:100,clientY:150}));
+    assert.equal(menu.hidden,false);
+    menu.querySelector('[role=menuitem]').click();
+    await new Promise(r=>setImmediate(r));
+    assert.equal(win.document.querySelector('#chat-panel').hidden,false);
+    assert.ok(win.document.querySelector('.workspace').classList.contains('chat-open'));
+    const modelTrigger=win.document.querySelector('#chat-model');
+    modelTrigger.click();
+    const secondModel=[...win.document.querySelectorAll('[role=option]')].find(option=>option.textContent.includes('Second model'));
+    assert.ok(secondModel,'available models can be chosen from the themed menu');
+    secondModel.click();
+    assert.equal(modelTrigger.getAttribute('aria-expanded'),'false');
+    modelTrigger.dispatchEvent(new win.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));
+    assert.equal(win.document.activeElement.textContent.includes('Second model'),true);
+    win.document.activeElement.dispatchEvent(new win.KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true,cancelable:true}));
+    assert.equal(win.document.activeElement.textContent.includes('Fixture'),true);
+    win.document.activeElement.dispatchEvent(new win.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+    assert.equal(win.document.activeElement,modelTrigger);
+    const effortTrigger=win.document.querySelector('#chat-effort');
+    assert.ok(effortTrigger,'reasoning effort can be selected beside the model');
+    effortTrigger.click();
+    win.document.querySelector('#chat-effort-options [role=option]:last-child').click();
+    assert.equal(effortTrigger.value,'high');
+    assert.equal(win.document.querySelector('#ask-selection').textContent,'new');
+    ui.editor.dispatch({selection:{anchor:0}});
+    const question=win.document.querySelector('#ask-question');question.value='Перепиши фрагмент';
+    win.document.querySelector('#ask-send').click();await new Promise(r=>setImmediate(r));
+    assert.equal(sent.length,1);
+    assert.equal(sent[0].model,'second','Escape preserves the committed model and sends it to App Server');
+    assert.equal(sent[0].effort,'high');
+    assert.equal(sent[0].document.versions.opened,'# Original\nold\n');
+    assert.equal(sent[0].document.versions.editor,'# Edited\nnew\n');
+    assert.equal(sent[0].document.selection.ranges[0].text,'new');
+    assert.equal(win.document.querySelector('#chat-messages strong').textContent,'world');
+    assert.equal(question.value,'');assert.equal(ui.controller.dirty,true);
+    reject=true;question.value='Ещё вопрос';win.document.querySelector('#ask-send').click();await new Promise(r=>setImmediate(r));
+    assert.equal(question.value,'Ещё вопрос');assert.match(win.document.querySelector('#ask-error').textContent,/Connection rejected/);
+    reject=false;
+    ui.editor.dispatch({selection:{anchor:9,head:12}});
+    ui.editor.contentDOM.dispatchEvent(new win.KeyboardEvent('keydown',{key:'F10',shiftKey:true,bubbles:true,cancelable:true}));
+    menu.querySelector('[role=menuitem]').click();
+    ui.editor.dispatch({changes:{from:ui.editor.state.doc.length,insert:'Later edit\n'}});
+    assert.equal(win.document.querySelector('#ask-selection').hidden,true,'stale selection is removed while the latest editor text stays available');
+    question.value='Объясни правки';question.dispatchEvent(new win.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));await new Promise(r=>setImmediate(r));
+    assert.equal(sent.length,2);assert.match(sent[1].document.versions.editor,/Later edit/);assert.equal(sent[1].document.selection,null);
+    win.document.querySelector('#chat-close').click();assert.equal(win.document.querySelector('#chat-panel').hidden,true);
+    win.document.querySelector('#ask').click();await new Promise(r=>setImmediate(r));assert.equal(win.document.querySelectorAll('.chat-message').length,4,'closing the panel preserves the conversation');
+    assert.equal(ui.controller.dirty,true);
+    question.value='Draft for one';
+    await ui.controller.open('two',{discard:true});await new Promise(r=>setImmediate(r));
+    assert.equal(question.value,'');assert.equal(win.document.querySelectorAll('.chat-message').length,0);
+    assert.equal(modelTrigger.value,'fixture');assert.equal(effortTrigger.value,'');
+    effortTrigger.click();
+    assert.deepEqual([...win.document.querySelectorAll('#chat-effort-options [role=option]')].map(option=>option.textContent),['Авто','Medium']);
+    question.focus();question.value='Question for two';win.document.querySelector('#ask-send').click();await new Promise(r=>setImmediate(r));
+    question.value='Draft for two';
+    await ui.controller.open('one');await new Promise(r=>setImmediate(r));
+    assert.equal(question.value,'Draft for one');assert.equal(modelTrigger.value,'second');assert.equal(effortTrigger.value,'high');
+    assert.equal(win.document.querySelectorAll('.chat-message').length,4);
+    win.document.querySelector('#chat-new').click();await new Promise(r=>setImmediate(r));
+    assert.equal(win.document.querySelectorAll('.chat-message').length,0);
+    await ui.controller.open('two');await new Promise(r=>setImmediate(r));
+    assert.equal(question.value,'Draft for two');assert.equal(win.document.querySelectorAll('.chat-message').length,2);
+    assert.equal(sent.at(-1).document.skill.id,'two');
+  } finally { await ui.destroy(); dom.window.close(); }
+});
