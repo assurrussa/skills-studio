@@ -1,12 +1,13 @@
+import { t } from './i18n.mjs';
 export function createSelectionMenu({ editor, readContext, onAsk }) {
   const document = editor.dom.ownerDocument, window = document.defaultView;
   const abort = new window.AbortController();
   const on = (target, type, callback, options = {}) => target.addEventListener(type, callback, { ...options, signal:abort.signal });
   const menu = document.createElement('div');
   menu.id = 'editor-selection-menu'; menu.className = 'skill-context-menu editor-selection-menu';
-  menu.hidden = true; menu.setAttribute('role', 'menu'); menu.setAttribute('aria-label', 'Действия с выделенным текстом');
+  menu.hidden = true; menu.setAttribute('role', 'menu'); menu.setAttribute('aria-label', t('Действия с выделенным текстом'));
   const ask = document.createElement('button');
-  ask.type = 'button'; ask.textContent = 'Спросить в боковом чате'; ask.setAttribute('role', 'menuitem'); ask.tabIndex = -1;
+  ask.type = 'button'; ask.textContent = t('Спросить в боковом чате'); ask.setAttribute('role', 'menuitem'); ask.tabIndex = -1;
   menu.append(ask); document.body.append(menu);
   let context = null;
 
@@ -44,5 +45,6 @@ export function createSelectionMenu({ editor, readContext, onAsk }) {
   on(document, 'scroll', event => { if (!menu.contains(event.target)) close(); }, { capture:true });
   on(window, 'resize', () => close());
   on(window, 'blur', () => close());
-  return { close, destroy() { abort.abort(); menu.remove(); } };
+  function refreshLocale() { menu.setAttribute('aria-label', t('Действия с выделенным текстом')); ask.textContent = t('Спросить в боковом чате'); }
+  return { refreshLocale, close, destroy() { abort.abort(); menu.remove(); } };
 }

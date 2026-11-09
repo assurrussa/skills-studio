@@ -39,6 +39,7 @@ test('system visibility excludes .system skills and their personal aliases while
   assert.ok(system);
   assert.equal(system.readOnly, true);
   assert.equal(system.source, 'Системные');
+  assert.equal(system.sourceKind, 'label');
   await assert.rejects(f.store.readSkill({ id:system.id, includeSystem:false }), { code:'NOT_FOUND' });
   assert.equal((await f.store.readSkill({ id:system.id, includeSystem:true })).readOnly, true);
 });
@@ -66,6 +67,18 @@ test('groups global and project skills and deduplicates symlink aliases', async 
   const result = await f.store.listSkills('p1');
   assert.deepEqual(result.skills.map(x => x.scope).sort(), ['global', 'local']);
   assert.equal(result.skills.find(x => x.scope === 'global').name, 'sample');
+  assert.equal(result.skills.find(x => x.scope === 'global').sourceKind, 'label');
+  assert.equal(result.skills.find(x => x.scope === 'local').sourceKind, 'name');
+});
+
+test('project names that match service labels remain explicitly user-owned sources', async t => {
+  const f = await fixture(t);
+  await writeFile(f.registry, JSON.stringify({'local-projects':{p1:{id:'p1',name:'Системные',rootPaths:[f.project]}}}));
+  await f.skill(join(f.project,'.agents/skills'),'local');
+  const result = await f.store.listSkills('p1');
+  const local = result.skills.find(skill=>skill.scope==='local');
+  assert.equal(local.source,'Системные');
+  assert.equal(local.sourceKind,'name');
 });
 
 test('reads exact UTF-8 bytes and saves with backup and a changed revision', async t => {

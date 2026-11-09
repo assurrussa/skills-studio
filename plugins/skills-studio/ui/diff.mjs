@@ -1,3 +1,4 @@
+import { t } from './i18n.mjs';
 function splitLines(text) {
   return text.match(/[^\n]*\n|[^\n]+$/g) || [];
 }
@@ -68,7 +69,7 @@ export function createUnifiedDiff(before, after) {
     const lines = [];
     for (const { kind, text, oldLine, newLine, noNewline } of selected) {
       lines.push({ kind, text, oldLine, newLine });
-      if (noNewline) lines.push({ kind: 'note', text: 'Нет перевода строки в конце файла', oldLine: null, newLine: null });
+      if (noNewline) lines.push({ kind: 'note', text: t('Нет перевода строки в конце файла'), oldLine: null, newLine: null });
     }
     return { header: `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@`, lines };
   });

@@ -1,10 +1,11 @@
+import { t } from './i18n.mjs';
 import { Marked } from 'marked';
 
 const escape = text => text.replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
 const markdown = new Marked({ gfm: true, renderer: {
   html: ({ text }) => escape(text),
   // Previewing a local document must not fetch remote resources automatically.
-  image: ({ text }) => `<span class="preview-image" title="Изображение">▧ ${escape(text || 'Изображение')}</span>`,
+  image: ({ text }) => `<span class="preview-image" title="${escape(t('Изображение'))}">▧ ${escape(text || t('Изображение'))}</span>`,
 } });
 const allowedTags = new Set('p h1 h2 h3 h4 h5 h6 ul ol li pre code blockquote table thead tbody tr th td strong em del hr br a span input'.split(' '));
 
@@ -32,7 +33,7 @@ function safeMarkdown(document, content) {
       if (source.hasAttribute('title')) element.title = source.getAttribute('title');
     }
     if (tag === 'code' && /^language-[\w+-]+$/.test(source.className)) element.className = source.className;
-    if (tag === 'span' && source.className === 'preview-image') { element.className = 'preview-image'; element.title = 'Изображение'; }
+    if (tag === 'span' && source.className === 'preview-image') { element.className = 'preview-image'; element.title = t('Изображение'); }
     if (tag === 'ol' && /^-?\d+$/.test(source.getAttribute('start') || '')) element.setAttribute('start', source.getAttribute('start'));
     if (tag === 'input') { element.type = 'checkbox'; element.disabled = true; element.checked = source.hasAttribute('checked'); }
     for (const child of source.childNodes) element.append(copy(child));
@@ -47,7 +48,7 @@ export function renderMarkdown(target, content) {
   const frontmatter = /^(?:\uFEFF)?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(content);
   if (frontmatter) {
     const details = document.createElement('details'); details.className = 'preview-metadata';
-    const summary = document.createElement('summary'); summary.textContent = 'Метаданные скилла';
+    const summary = document.createElement('summary'); summary.textContent = t('Метаданные скилла');
     const pre = document.createElement('pre'); const code = document.createElement('code');
     code.textContent = frontmatter[1]; pre.append(code); details.append(summary, pre); fragment.append(details);
     content = content.slice(frontmatter[0].length);

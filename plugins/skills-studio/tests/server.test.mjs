@@ -63,15 +63,28 @@ test('MCP reads and saves only a catalogued skill and returns conflict errors', 
   assert.equal(conflict.isError, true);
   assert.equal(conflict.structuredContent.code, 'CONFLICT');
   assert.equal((await call('open')).structuredContent.hideSystemSkills, true);
+  assert.equal((await call('open')).structuredContent.language, 'en');
   await writeFile(join(store.stateDir,'preferences.json'),JSON.stringify({hidePluginSkills:false}));
   assert.equal((await call('open')).structuredContent.hidePluginSkills, false);
   assert.equal((await call('open')).structuredContent.hideSystemSkills, true);
+  assert.equal((await call('open')).structuredContent.language, 'en', 'legacy preferences default to English');
+  await call('update_preferences', {language:'ru'});
+  assert.equal((await call('open')).structuredContent.language, 'ru');
+  const invalidLanguage=await call('update_preferences', {language:'de'});
+  assert.equal(invalidLanguage.isError, true);
+  assert.equal((await call('open')).structuredContent.language, 'ru', 'invalid locale must not overwrite the saved choice');
   await call('update_preferences', {hideSystemSkills:false,collapsedSections:['global','plugin:test/alpha']});
   await call('select_project', { projectId: 'one' });
   const reopened=(await call('open')).structuredContent;
   assert.equal(reopened.selectedProjectId, 'one');
   assert.equal(reopened.hideSystemSkills, false);
   assert.deepEqual(reopened.collapsedSections,['global','plugin:test/alpha']);
+  assert.equal(reopened.language,'ru', 'unrelated preference writes retain the language');
+  await call('update_preferences', {language:'en'});
+  const reopenedEnglish=(await call('open')).structuredContent;
+  assert.equal(reopenedEnglish.language,'en');
+  assert.equal(reopenedEnglish.selectedProjectId,'one');
+  assert.deepEqual(reopenedEnglish.collapsedSections,['global','plugin:test/alpha']);
 });
 
 test('context includes hidden plugin/system skills and excludes unavailable records',async t=>{

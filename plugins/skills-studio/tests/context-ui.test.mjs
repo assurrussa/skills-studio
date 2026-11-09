@@ -1,3 +1,5 @@
+import { setLanguage } from '../ui/i18n.mjs';
+setLanguage('ru');
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
@@ -34,7 +36,7 @@ test('coverage explains the full catalogue separately from filtered sidebar and 
  const panel=mountContextOverview({document:dom.window.document,target});
  panel.render({...context,totalCount:186,enabledCount:35,measuredCount:35,excluded:{disabled:23,cached:128,unknown:0,invalid:0}},{visibleCount:181});
  assert.match(target.querySelector('.context-coverage').textContent,/35 из 186.*выключено — 23.*не подтверждено — 128/);
- assert.match(target.querySelector('.context-visibility').textContent,/слева — 181.*Ещё 5 скрыты/);
+ assert.match(target.querySelector('.context-visibility').textContent,/слева — 181.*Скрыто фильтрами — 5/);
  assert.match(target.querySelector('.context-caution').textContent,/не означает, что они выключены/);
  assert.match(target.querySelector('.context-explanation').textContent,/не фиксированная добавка к каждому запросу/);
  panel.render({...context,metadataTokens:null,measuredCount:1,excluded:{}});

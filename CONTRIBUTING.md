@@ -1,13 +1,13 @@
-# Разработка Skills Studio
+# Contributing to Skills Studio
 
-Исходники плагина находятся в `plugins/skills-studio/`:
+The plugin lives in `plugins/skills-studio/`:
 
-- `src/` — MCP-сервер, работа с файлами и локальным Codex App Server.
-- `ui/` — интерфейс каталога, редактор и боковой чат.
-- `tests/` — проверки файловых операций, RPC и интерфейса.
-- `scripts/` — сборка и запуск установленного плагина.
+- `src/` — MCP server, file operations, and local Codex App Server integration.
+- `ui/` — catalogue, editor, and side chat.
+- `tests/` — file-operation, RPC, and UI tests.
+- `scripts/` — build and installed-plugin launch scripts.
 
-Нужны Node.js 20+ и npm. Из корня репозитория:
+You need Node.js 20+ and npm. From the repository root:
 
 ```sh
 cd plugins/skills-studio
@@ -16,10 +16,12 @@ npm test
 npm run check
 ```
 
-`npm test` предварительно собирает плагин. После изменения исходников включайте в коммит актуальные `server.mjs` и `assets/app.html`: они хранятся в Git, чтобы пользователи могли установить плагин без npm.
+`npm test` builds the plugin first. Commit updated `server.mjs` and `assets/app.html` after changing source files: these bundles are tracked so users can install the plugin without npm.
 
-При добавлении или обновлении зависимостей проверьте `THIRD_PARTY_NOTICES.txt`: он должен включать полные лицензии библиотек, вошедших в готовые сборки.
+When adding or updating dependencies, update `THIRD_PARTY_NOTICES.txt` with the complete licenses of libraries included in the distributed bundles.
 
-Перед pull request опишите изменённое поведение и выполненные проверки. Для изменения интерфейса приложите скриншот с демонстрационными данными. Не добавляйте личные навыки, историю чатов, настройки Codex, токены, резервные копии и изображения с рабочими данными.
+Describe the changed behavior and the checks you ran in your pull request. For UI changes, include a screenshot with demonstration data. Do not commit personal skills, chat history, Codex settings, tokens, backups, or images containing workspace data.
 
-Все данные тестов создавайте во временных каталогах. Проверка установки должна использовать отдельный профиль Codex, не меняющий пользовательские настройки. Репозиторий не содержит автоматических CI-запусков; обязательные проверки выполняются локально.
+English is the default UI language. Keep English and Russian labels in sync, including placeholders, tooltips, accessibility labels, and status messages. Localize application messages only; skill content, user notes, paths, and chat messages must retain their original text. Test that switching languages preserves unsaved edits and drafts. Update both README versions for user-facing changes.
+
+Create test data in temporary directories. Installation checks must use a separate Codex profile and leave user settings untouched. This repository has no automatic CI jobs; run the required checks locally.

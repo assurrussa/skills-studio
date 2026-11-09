@@ -1,3 +1,4 @@
+import { t } from './i18n.mjs';
 export function createModelPicker({ trigger, popup, options, labelPrefix = 'Модель', listLabel = 'Модели' }) {
   const document = trigger.ownerDocument, root = trigger.parentElement;
   const abort = new document.defaultView.AbortController();
@@ -9,16 +10,17 @@ export function createModelPicker({ trigger, popup, options, labelPrefix = 'Мо
   trigger.setAttribute('aria-haspopup', 'listbox');
   trigger.setAttribute('aria-controls', options.id);
   trigger.setAttribute('aria-expanded', 'false');
-  options.setAttribute('role', 'listbox'); options.setAttribute('aria-label', listLabel);
+  options.setAttribute('role', 'listbox'); options.setAttribute('aria-label', t(listLabel));
 
   function close(restoreFocus = false) {
     opened = false; popup.hidden = true; trigger.setAttribute('aria-expanded', 'false');
     if (restoreFocus) trigger.focus();
   }
   function render() {
+    options.setAttribute('aria-label', t(listLabel));
     const current = models.find(model => model.model === selected);
-    trigger.value = selected; label.textContent = current?.displayName || 'Модель Codex';
-    trigger.title = current?.description || `${labelPrefix}: ${label.textContent}`; trigger.setAttribute('aria-label', `${labelPrefix}: ${label.textContent}`);
+    trigger.value = selected; label.textContent = current?.displayName || t('Модель Codex');
+    trigger.title = current?.description || `${t(labelPrefix)}: ${label.textContent}`; trigger.setAttribute('aria-label', `${t(labelPrefix)}: ${label.textContent}`);
     options.replaceChildren(...models.map(model => {
       const option = document.createElement('button'); option.type = 'button'; option.tabIndex = -1;
       option.className = 'chat-model-option'; option.setAttribute('role', 'option');
@@ -62,10 +64,11 @@ export function createModelPicker({ trigger, popup, options, labelPrefix = 'Мо
   on(document, 'pointerdown', event => { if (opened && !root.contains(event.target)) close(); });
   on(document, 'focusin', event => { if (opened && !root.contains(event.target)) close(); });
   return {
+    refreshLocale() { signature = null; render(); },
     setOptions(values) {
       const next = JSON.stringify(values || []); if (next === signature) return;
       signature = next; close();
-      models = values?.length ? values : [{ model: '', displayName: 'Модель Codex' }];
+      models = values?.length ? values : [{ model: '', displayName: t('Модель Codex') }];
       if (values?.length && !models.some(model => model.model === selected)) selected = models.find(model => model.isDefault)?.model || models[0].model;
       render();
     },

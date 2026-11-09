@@ -34,10 +34,12 @@ test('summary partitions disabled, cached, unknown and invalid and retains same-
   const inputs = [skill('one'),skill('two'),skill('disabled','disabled'),skill('cached','cached'),skill('unknown','unknown'),skill('invalid','enabled',{validationError:'Invalid YAML'})];
   inputs.forEach(input => {input.context = measureSkillContext(input,document);});
   inputs[1].context.metadataTokens += 10;
+  inputs[1].sourceKind = 'name';
   const result = summarizeContext(inputs);
   assert.equal(result.enabledCount,2); assert.deepEqual(result.excluded,{disabled:1,cached:1,unknown:1,invalid:1});
   assert.equal(result.totalCount,6); assert.equal(result.measuredCount,2);
   assert.deepEqual(result.entries.map(entry => entry.id),['two','one']);
+  assert.equal(result.entries.find(entry=>entry.id==='two').sourceKind,'name');
   assert.equal(result.metadataTokens,inputs[0].context.metadataTokens + inputs[1].context.metadataTokens);
 });
 

@@ -68,7 +68,7 @@ export function summarizeContext(skills) {
     if (status !== 'enabled') { excluded.unknown++; continue; }
     if (skill.validationError || typeof skill.description !== 'string' || !skill.description.trim() || typeof skill.name !== 'string' || !skill.name.trim()) { excluded.invalid++; continue; }
     const context = skill.context || {};
-    entries.push({ id:skill.id, name:skill.name, source:skill.source, scope:skill.scope, path:skill.path,
+    entries.push({ id:skill.id, name:skill.name, source:skill.source, ...(skill.sourceKind ? {sourceKind:skill.sourceKind} : {}), scope:skill.scope, path:skill.path,
       metadataTokens:Number.isFinite(context.metadataTokens) ? context.metadataTokens : null,
       instructionTokens:Number.isFinite(context.instructionTokens) ? context.instructionTokens : null });
   }

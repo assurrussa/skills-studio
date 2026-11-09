@@ -1,3 +1,5 @@
+import { setLanguage } from '../ui/i18n.mjs';
+setLanguage('ru');
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

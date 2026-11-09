@@ -1,7 +1,7 @@
 {
   "name": "skills-studio",
-  "version": "0.2.5",
-  "description": "Локальный менеджер скиллов с Markdown-редактором и выбором проекта Codex.",
+  "version": "0.2.6",
+  "description": "Local Codex skill manager with availability checks, context estimates and a Markdown editor.",
   "author": {
     "name": "Skills Studio contributors"
   },
@@ -16,8 +16,8 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Skills Studio",
-    "shortDescription": "Доступность, источники и ревью навыков Codex",
-    "longDescription": "Каталог личных, проектных и плагинных навыков с состоянием Codex, исходными путями и местами подключения. Проверяйте Git-источники вручную и фиксируйте ревью содержания с основаниями. Изменение ресурсов требует повторного просмотра. Markdown-редактор, DIFF, резервные копии и помощник остаются под рукой. Переключение доступности личных навыков сохраняет файлы на месте. Данные хранятся локально; обновления источников автоматически не применяются.",
+    "shortDescription": "Manage Codex skills, availability, sources and reviews",
+    "longDescription": "Browse personal, project and plugin skills with Codex availability, original paths and registrations. Check Git sources and record content reviews with evidence. Estimate catalogue context, edit Markdown with VIEW / EDIT / DIFF, and discuss each skill in a separate chat. Personal skill availability controls keep files in place. Data stays local; source updates are never installed automatically. English by default, with a saved English/Russian interface switch.",
     "developerName": "Skills Studio contributors",
     "category": "Developer Tools",
     "capabilities": [

@@ -1,12 +1,12 @@
 {
   "name": "skills-studio",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check src/store.mjs && node --check src/provenance.mjs && node --check src/server.mjs && node --check ui/app.mjs && node --check ui/view.mjs && node --check ui/controller.mjs && node --check ui/project-picker.mjs && node --check ui/diff.mjs && node --check ui/chat.mjs && node --check ui/skill-menu.mjs && node --check src/actions.mjs && node --check src/locking.mjs && node --check src/plugins.mjs && node --check ui/preview.mjs && node --check ui/selection-menu.mjs && node --check src/app-server.mjs && node --check ui/side-chat.mjs && node --check ui/model-picker.mjs && node --check ui/skill-chats.mjs && node --check src/runtime-catalog.mjs && node --check src/health.mjs && node --check ui/catalog.mjs && node --check src/context.mjs && node --check ui/context.mjs && node --check src/locations.mjs",
+    "check": "node --check src/store.mjs && node --check src/provenance.mjs && node --check src/server.mjs && node --check ui/app.mjs && node --check ui/view.mjs && node --check ui/controller.mjs && node --check ui/project-picker.mjs && node --check ui/diff.mjs && node --check ui/chat.mjs && node --check ui/skill-menu.mjs && node --check src/actions.mjs && node --check src/locking.mjs && node --check src/plugins.mjs && node --check ui/preview.mjs && node --check ui/selection-menu.mjs && node --check src/app-server.mjs && node --check ui/side-chat.mjs && node --check ui/model-picker.mjs && node --check ui/skill-chats.mjs && node --check src/runtime-catalog.mjs && node --check src/health.mjs && node --check ui/catalog.mjs && node --check src/context.mjs && node --check ui/context.mjs && node --check src/locations.mjs && node --check ui/i18n.mjs",
     "pretest": "npm run build"
   },
   "dependencies": {

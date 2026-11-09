@@ -1,3 +1,4 @@
+import { t } from './i18n.mjs';
 export function createSkillMenu({ document, onAction }) {
   const window = document.defaultView, abort = new window.AbortController();
   const menu = document.createElement('div');
@@ -8,22 +9,22 @@ export function createSkillMenu({ document, onAction }) {
   function close(restoreFocus = false) { menu.hidden = true; anchor?.setAttribute('aria-expanded', 'false'); if (restoreFocus && anchor?.isConnected) anchor.focus(); }
   function open({ skill, anchor:target, point, projectId }) {
     close(); anchor = target; menu.replaceChildren();
-    menu.setAttribute('aria-label', `Действия со скиллом ${skill.name}`);
+    menu.setAttribute('aria-label', t("Действия со скиллом {0}", skill.name));
     const locked = Boolean(skill.readOnly || skill.scope === 'plugin');
     const off = skill.disabled || skill.availability?.status === 'disabled';
     const entries = [
-      ['rename', 'Переименовать', locked],
-      ['copy', 'Сделать копию', false],
-      ['reveal', 'Открыть в Finder', false],
-      ['move', skill.scope === 'global' ? 'Сделать локальным' : 'Сделать глобальным', locked || skill.scope === 'global' && !projectId],
-      [off ? 'enable' : 'disable', skill.disabled ? 'Восстановить из архива' : off ? 'Включить' : 'Выключить', locked || (skill.registrations?.length > 1 && !skill.disabled) || Boolean(skill.availability && !['enabled','disabled'].includes(skill.availability.status) && !skill.disabled)],
-      ['delete', 'Удалить', locked],
+      ['rename', t('Переименовать'), locked],
+      ['copy', t('Сделать копию'), false],
+      ['reveal', t('Открыть в Finder'), false],
+      ['move', skill.scope === 'global' ? t('Сделать локальным') : t('Сделать глобальным'), locked || skill.scope === 'global' && !projectId],
+      [off ? 'enable' : 'disable', skill.disabled ? t('Восстановить из архива') : off ? t('Включить') : t('Выключить'), locked || (skill.registrations?.length > 1 && !skill.disabled) || Boolean(skill.availability && !['enabled','disabled'].includes(skill.availability.status) && !skill.disabled)],
+      ['delete', t('Удалить'), locked],
     ];
     for (const [action, title, disabled] of entries) {
       const button = document.createElement('button');
       button.type = 'button'; button.textContent = title; button.dataset.action = action; button.disabled = disabled;
       button.setAttribute('role', 'menuitem'); button.tabIndex = -1;
-      if (disabled) button.title = locked ? 'Оригинал доступен только для чтения' : 'Сначала выберите проект';
+      if (disabled) button.title = locked ? t('Оригинал доступен только для чтения') : t('Сначала выберите проект');
       button.addEventListener('click', () => { close(); onAction(action, skill); });
       menu.append(button);
     }

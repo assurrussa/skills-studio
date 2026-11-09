@@ -1,3 +1,4 @@
+import { language } from './i18n.mjs';
 export class StudioController {
   constructor(call, onChange = () => {}) {
     this.call = call;
@@ -5,7 +6,7 @@ export class StudioController {
     this.baseline = '';
     this.originalContent = '';
     this.preferenceQueue = Promise.resolve();
-    this.state = { projects: [], skills: [], context: null, projectId: null, hideSystemSkills: true, hidePluginSkills: false, collapsedSections: [], current: null, warnings: [], busy: false, status: 'Подключение…', error: null };
+    this.state = { language: 'en', projects: [], skills: [], context: null, projectId: null, hideSystemSkills: true, hidePluginSkills: false, collapsedSections: [], current: null, warnings: [], busy: false, status: 'Подключение…', error: null };
   }
   withCatalogChecks(current, skills = this.state.skills) {
     if (!current?.health) return current;
@@ -32,7 +33,7 @@ export class StudioController {
       const hideSystemSkills = data.hideSystemSkills !== false;
       const hidePluginSkills = data.hidePluginSkills === true;
       const catalog = await this.call('list', { projectId: data.selectedProjectId, includePlugins: !hidePluginSkills, includeSystem: !hideSystemSkills });
-      Object.assign(this.state, { projects: data.projects, projectId: data.selectedProjectId, hideSystemSkills, hidePluginSkills, collapsedSections: data.collapsedSections || [], skills: catalog.skills, context: catalog.context || null, warnings: [...new Set([...(data.warnings || []), ...catalog.warnings])], status: 'Выберите скилл' });
+      Object.assign(this.state, { language: data.language === 'ru' ? 'ru' : 'en', projects: data.projects, projectId: data.selectedProjectId, hideSystemSkills, hidePluginSkills, collapsedSections: data.collapsedSections || [], skills: catalog.skills, context: catalog.context || null, warnings: [...new Set([...(data.warnings || []), ...catalog.warnings])], status: 'Выберите скилл' });
     });
   }
   async refresh({ discard = false } = {}) {
@@ -89,6 +90,22 @@ export class StudioController {
     const operation = this.preferenceQueue.then(() => this.call('update_preferences', patch));
     this.preferenceQueue = operation.catch(() => {});
     return operation;
+  }
+  async setLanguage(language) {
+    if (!['en', 'ru'].includes(language)) throw new Error('Unsupported language.');
+    if (this.state.busy || this.state.languageSaving || this.state.language === language) return;
+    this.state.languageSaving = true; this.emit();
+    // Commit only after persistence succeeds; a failed preference must not lie in the UI.
+    try {
+      await this.queuePreferences({language});
+      this.state.language = language;
+      this.state.error = null;
+      this.emit();
+    } catch (error) {
+      this.state.error = {code:error.code || 'ERROR', message:error.message};
+      this.emit();
+      throw error;
+    } finally { this.state.languageSaving = false; this.emit(); }
   }
   async setHideSystemSkills(hideSystemSkills) {
     if (this.state.busy) return;

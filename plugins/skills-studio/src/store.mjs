@@ -167,7 +167,9 @@ export class SkillStore {
           }
           let readOnly = root.readOnly || info.size > MAX_BYTES || system;
           try { await access(canonical, constants.W_OK); } catch { readOnly = true; }
-          const skill = { id, ...details, canonicalPath:canonical, registrations:[registration], path, scope: root.scope, source: system ? 'Системные' : root.source, system, disabled, readOnly, validationError };
+          // Project/plugin names stay opaque; service-owned labels can be localized.
+          const sourceKind = system || root.runtimeScope || root.scope === 'global' ? 'label' : 'name';
+          const skill = { id, ...details, canonicalPath:canonical, registrations:[registration], path, scope: root.scope, source: system ? 'Системные' : root.source, sourceKind, system, disabled, readOnly, validationError };
           skill.context = measureSkillContext(skill, content);
           if (root.plugin) skill.plugin = root.plugin;
           seen.set(id, skill);

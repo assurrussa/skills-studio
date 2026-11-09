@@ -1,6 +1,8 @@
+import { t, locale, language, localizeService, sourceLabel, setLanguage, applyTranslations, editorPhrases } from './i18n.mjs';
 import { mountCatalog, availabilityLabel, matchesStatus } from './catalog.mjs';
 import { Decoration, EditorView, keymap } from '@codemirror/view';
 import { Compartment, EditorState } from '@codemirror/state';
+import { searchPanelOpen, closeSearchPanel, openSearchPanel, getSearchQuery, setSearchQuery } from '@codemirror/search';
 import { basicSetup } from 'codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { oneDark } from '@codemirror/theme-one-dark';
@@ -14,11 +16,13 @@ import { createSideChat } from './side-chat.mjs';
 
 export function mountStudio({ call, chat = null, openExternal = url => window.open(url, '_blank', 'noopener,noreferrer'), theme = 'dark' }) {
   const $ = id => document.getElementById(id);
+  const editorLocale = new Compartment(), diffLocale = new Compartment();
   const readOnly = new Compartment(), appearance = new Compartment(), diffAppearance = new Compartment();
   let currentId = null, listSignature = '', syncing = false, editorReadOnly = true;
+  let renderedLanguage = null;
   let mode = 'view', diffSignature = '', previewSignature = '';
   const modes = ['view', 'edit', 'diff'];
-  let selectionMenu = null, sideChat = null;
+  let selectionMenu = null, sideChat = null, nameDialogContext = null, deleteDialogSkill = null;
   let search = '', statusFilter = 'all';
   const abort = new window.AbortController();
   const on = (element, type, fn) => element.addEventListener(type, fn, { signal: abort.signal });
@@ -45,7 +49,7 @@ export function mountStudio({ call, chat = null, openExternal = url => window.op
     return element;
   }
   function renderList(state) {
-    const signature = JSON.stringify([state.skills, state.projectId, state.current?.id, state.busy, state.hideSystemSkills, state.collapsedSections, search, statusFilter, state.hidePluginSkills]);
+    const signature = JSON.stringify([state.skills, state.projectId, state.current?.id, state.busy, state.hideSystemSkills, state.collapsedSections, search, statusFilter, state.hidePluginSkills, state.language]);
     if (signature === listSignature) return;
     listSignature = signature;
     const nav = $('skills');
@@ -54,11 +58,11 @@ export function mountStudio({ call, chat = null, openExternal = url => window.op
     const visibleSkills = state.skills.filter(skill => (!state.hideSystemSkills || !skill.system) && (!state.hidePluginSkills || skill.scope !== 'plugin'));
     const items = visibleSkills.filter(skill => matchesStatus(skill,statusFilter)).filter(skill => `${skill.name} ${skill.description || ''} ${skill.source || ''} ${skill.agentSkill ? 'AgentSkill Skills agentSkill ai skills add' : ''} ${skill.git ? 'Git' : ''} ${skill.disabled || skill.availability?.status === 'disabled' ? 'Disabled выключен' : ''}`.toLocaleLowerCase().includes(search));
     const sections = [];
-    if (state.projectId) sections.push({ id: `local:${state.projectId}`, title: 'Локальные', group: items.filter(x => x.scope === 'local') });
-    sections.push({ id: 'global', title: 'Глобальные', group: items.filter(x => x.scope === 'global') });
+    if (state.projectId) sections.push({ id: `local:${state.projectId}`, title: t('Локальные'), group: items.filter(x => x.scope === 'local') });
+    sections.push({ id: 'global', title: t('Глобальные'), group: items.filter(x => x.scope === 'global') });
     if (!state.hidePluginSkills) {
       const plugins = new Map(visibleSkills.filter(x => x.scope === 'plugin' && x.plugin).map(x => [x.plugin.id, x.plugin]));
-      for (const plugin of [...plugins.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'))) sections.push({ id: `plugin:${plugin.id}`, title: plugin.name, group: items.filter(x => x.scope === 'plugin' && x.plugin?.id === plugin.id), plugin });
+      for (const plugin of [...plugins.values()].sort((a, b) => a.name.localeCompare(b.name, locale()))) sections.push({ id: `plugin:${plugin.id}`, title: plugin.name, group: items.filter(x => x.scope === 'plugin' && x.plugin?.id === plugin.id), plugin });
     }
     for (const { id, title, group, plugin } of sections) {
       if (!group.length && (search || statusFilter !== 'all')) continue;
@@ -68,11 +72,11 @@ export function mountStudio({ call, chat = null, openExternal = url => window.op
       const body = node('div', 'section-items'); body.id = 'section-' + encodeURIComponent(id); body.hidden = collapsed;
       heading.setAttribute('aria-expanded', String(!collapsed)); heading.setAttribute('aria-controls', body.id);
       const chevron = node('span', 'section-chevron'); chevron.setAttribute('aria-hidden', 'true');
-      heading.append(chevron, node('span', 'section-title', title), node('span', 'section-count', String(group.length)));
-      if (plugin) heading.title = `${plugin.name} · ${plugin.marketplace || ''} · Только чтение`;
+      heading.append(chevron, node('span', 'section-title', title), node('span', 'section-count', group.length.toLocaleString(locale())));
+      if (plugin) heading.title = t("{0} · {1} · Только чтение", plugin.name, plugin.marketplace || '');
       heading.addEventListener('click', () => perform(() => controller.toggleSection(id)));
       section.append(heading, body); nav.append(section);
-      if (!group.length) body.append(node('p', 'list-empty', search ? 'Ничего не найдено' : 'Скиллов пока нет'));
+      if (!group.length) body.append(node('p', 'list-empty', search ? t('Ничего не найдено') : t('Скиллов пока нет')));
       for (const skill of group) {
         const row = node('div', 'skill-row');
         const button = node('button', 'skill' + (state.current?.id === skill.id ? ' selected' : '') + (skill.disabled ? ' skill-disabled' : ''));
@@ -81,31 +85,31 @@ export function mountStudio({ call, chat = null, openExternal = url => window.op
         if (state.current?.id === skill.id) button.setAttribute('aria-current', 'true');
         button.append(node('span', 'skill-mark', '◇'));
         const text = node('span', 'skill-text');
-        text.append(node('span', 'skill-name', skill.name), node('span', 'skill-source', (skill.source || 'SKILL.md') + ' · ' + availabilityLabel(skill)));
+        text.append(node('span', 'skill-name', skill.name), node('span', 'skill-source', (sourceLabel(skill) || 'SKILL.md') + ' · ' + availabilityLabel(skill)));
         if (skill.disabled || skill.agentSkill || skill.git) {
           const badges = node('span', 'skill-badges');
           if (skill.disabled) {
             const badge = node('span', 'skill-badge badge-disabled', 'Disabled');
-            badge.title = 'Выключен: находится в disabled-skills'; badges.append(badge);
+            badge.title = t('Выключен: находится в disabled-skills'); badges.append(badge);
           }
           if (skill.agentSkill) {
             const badge = node('span', 'skill-badge badge-agentSkill', 'AgentSkill Skills');
-            badge.title = ['Установлен через agentSkill ai skills add', `Lock-файл: ${skill.agentSkill.lockfile}`, skill.agentSkill.source ? `Источник: ${skill.agentSkill.source}` : ''].filter(Boolean).join('\n');
+            badge.title = [t('Установлен через agentSkill ai skills add'), t("Lock-файл: {0}", skill.agentSkill.lockfile), skill.agentSkill.source ? t("Источник: {0}", skill.agentSkill.source) : ''].filter(Boolean).join('\n');
             badges.append(badge);
           }
           if (skill.git) {
             const badge = node('span', 'skill-badge badge-git', 'Git');
-            badge.title = `Отслеживается Git\nРепозиторий: ${skill.git.repository}\nФайл или ссылка: ${skill.git.trackedPath}`;
+            badge.title = t("Отслеживается Git\nРепозиторий: {0}\nФайл или ссылка: {1}", skill.git.repository, skill.git.trackedPath);
             badges.append(badge);
           }
           text.append(badges);
         }
         button.append(text);
-        if (skill.readOnly) { const lock = node('span', 'skill-lock', 'RO'); lock.title = 'Только чтение'; button.append(lock); }
+        if (skill.readOnly) { const lock = node('span', 'skill-lock', 'RO'); lock.title = t('Только чтение'); button.append(lock); }
         button.addEventListener('click', () => { if (state.current?.id !== skill.id) switchDocument(options => controller.open(skill.id, options)); });
         const more = node('button', 'skill-menu-trigger'); more.type = 'button'; more.disabled = Boolean(state.busy);
         more.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
-        more.setAttribute('aria-label', `Действия: ${skill.name}`); more.setAttribute('aria-haspopup', 'menu'); more.title = 'Действия со скиллом';
+        more.setAttribute('aria-label', t("Действия: {0}", skill.name)); more.setAttribute('aria-haspopup', 'menu'); more.title = t('Действия со скиллом');
         const openMenu = point => skillMenu.open({ skill, anchor:more, point, projectId:state.projectId });
         more.addEventListener('click', () => openMenu());
         row.addEventListener('contextmenu', event => { event.preventDefault(); if (!state.busy) openMenu(event.clientX || event.clientY ? { x:event.clientX, y:event.clientY } : undefined); });
@@ -114,10 +118,32 @@ export function mountStudio({ call, chat = null, openExternal = url => window.op
       }
     }
     if (focusedSection) [...nav.querySelectorAll('.section-heading')].find(heading => heading.dataset.sectionId === focusedSection)?.focus();
-    if (!items.length && (search || statusFilter !== 'all')) nav.append(node('p', 'list-empty', 'Ничего не найдено'));
-    $('total').textContent = `${visibleSkills.length} скиллов · на диске`;
+    if (!items.length && (search || statusFilter !== 'all')) nav.append(node('p', 'list-empty', t('Ничего не найдено')));
+    $('total').textContent = t("{0} скиллов · на диске", visibleSkills.length.toLocaleString(locale()));
   }
   function render(state) {
+    const localeChanged = language() !== state.language;
+    setLanguage(state.language);
+    if (!renderedLanguage || renderedLanguage !== state.language) { applyTranslations(document); renderedLanguage = state.language; }
+    $('language').value = state.language;
+    $('language').disabled = Boolean(state.busy || state.languageSaving);
+    editor.contentDOM.setAttribute('aria-label', t('Текст SKILL.md'));
+    diffEditor.contentDOM.setAttribute('aria-label', t('Изменения SKILL.md'));
+    const point = editor.state.selection.main.head, line = editor.state.doc.lineAt(point);
+    $('cursor').textContent = t('Стр {0}, ст {1}', line.number.toLocaleString(locale()), (point - line.from + 1).toLocaleString(locale()));
+    selectionMenu.refreshLocale();
+    if (nameDialogContext) renderNameDialogLabels(...nameDialogContext);
+    if (deleteDialogSkill) $('delete-skill-name').textContent = t('Удалить «{0}»?', deleteDialogSkill.name);
+    if (localeChanged) {
+      const searchOpen = searchPanelOpen(editor.state);
+      const searchQuery = searchOpen ? getSearchQuery(editor.state) : null;
+      if (searchOpen) closeSearchPanel(editor);
+      editor.dispatch({effects:editorLocale.reconfigure(EditorState.phrases.of(editorPhrases()))});
+      diffEditor.dispatch({effects:diffLocale.reconfigure(EditorState.phrases.of(editorPhrases()))});
+      if (searchOpen) { openSearchPanel(editor); editor.dispatch({effects:setSearchQuery.of(searchQuery)}); }
+      skillMenu.close(); sideChat?.refreshLocale();
+    }
+
     if (state.busy) skillMenu.close();
     if (!state.current || currentId !== state.current.id) mode = 'view';
     if (state.busy || !state.current || currentId !== state.current.id || mode !== 'edit') selectionMenu.close();
@@ -143,16 +169,16 @@ export function mountStudio({ call, chat = null, openExternal = url => window.op
     }
     $('dirty-dot').hidden = !controller.dirty;
     $('readonly').hidden = !state.current?.readOnly;
-    $('title').textContent = state.current?.name || 'Обзор навыков';
-    $('path').textContent = state.current?.path || 'Каталог, доступность и контекст';
+    $('title').textContent = state.current?.name || t('Обзор навыков');
+    $('path').textContent = state.current?.path || t('Каталог, доступность и контекст');
     $('path').title = state.current?.path || '';
-    $('status').textContent = state.busy ? 'Загрузка…' : controller.dirty ? 'Есть несохранённые изменения' : state.status;
+    $('status').textContent = state.busy ? t('Загрузка…') : controller.dirty ? t('Есть несохранённые изменения') : localizeService(state.status);
     $('error').hidden = !state.error;
-    $('error').textContent = state.error?.message || '';
+    $('error').textContent = localizeService(state.error?.message) || '';
     const warnings = [...state.warnings, ...(state.current?.validationError ? [state.current.validationError] : [])];
     $('warnings').hidden = !warnings.length;
-    $('warning-title').textContent = `Замечания: ${warnings.length}`;
-    $('warning-list').replaceChildren(...warnings.map(warning => node('li', '', warning)));
+    $('warning-title').textContent = t("Замечания: {0}", warnings.length.toLocaleString(locale()));
+    $('warning-list').replaceChildren(...warnings.map(warning => node('li', '', localizeService(warning))));
     $('empty').hidden = Boolean(state.current);
     $('editor').hidden = !state.current || mode !== 'edit';
     $('markdown-view').hidden = !state.current || mode !== 'view';
@@ -177,7 +203,7 @@ export function mountStudio({ call, chat = null, openExternal = url => window.op
     } else currentId = null;
     if (state.current && mode === 'diff') renderDiff(state.current);
     if (state.current && mode === 'view') {
-      const signature = JSON.stringify([state.current.id, state.current.content]);
+      const signature = JSON.stringify([state.current.id, state.current.content, state.language]);
       if (signature !== previewSignature) {
         renderMarkdown($('markdown-view'), state.current.content); previewSignature = signature;
       }
@@ -211,13 +237,13 @@ export function mountStudio({ call, chat = null, openExternal = url => window.op
     void sideChat.open(context || readChatSnapshot());
   }
   function diffExtensions(decorations = []) {
-    return [EditorState.readOnly.of(true), EditorView.editable.of(false),
+    return [diffLocale.of(EditorState.phrases.of(editorPhrases())), EditorState.readOnly.of(true), EditorView.editable.of(false),
       diffAppearance.of(document.documentElement.dataset.theme === 'light' ? [] : oneDark),
-      EditorView.contentAttributes.of({ 'aria-label': 'Изменения SKILL.md', tabindex: '0', spellcheck: 'false' }),
+      EditorView.contentAttributes.of({ 'aria-label': t('Изменения SKILL.md'), tabindex: '0', spellcheck: 'false' }),
       EditorView.decorations.of(Decoration.set(decorations))];
   }
   function renderDiff(current) {
-    const signature = JSON.stringify([current.id, controller.baseline, current.content]);
+    const signature = JSON.stringify([current.id, controller.baseline, current.content, language()]);
     if (signature === diffSignature) return;
     diffSignature = signature;
     const diff = createUnifiedDiff(controller.baseline, current.content);
@@ -243,14 +269,14 @@ export function mountStudio({ call, chat = null, openExternal = url => window.op
     diffEditor.setState(EditorState.create({ doc: lines.map(line => line.text).join('\n'), extensions: diffExtensions(decorations) }));
   }
   function editorExtensions() {
-    return [basicSetup, markdown(), EditorView.lineWrapping, appearance.of(document.documentElement.dataset.theme === 'light' ? [] : oneDark),
+    return [editorLocale.of(EditorState.phrases.of(editorPhrases())), basicSetup, markdown(), EditorView.lineWrapping, appearance.of(document.documentElement.dataset.theme === 'light' ? [] : oneDark),
       readOnly.of([EditorState.readOnly.of(!controller.state.current || Boolean(controller.state.current.readOnly)), EditorView.editable.of(Boolean(controller.state.current && !controller.state.current.readOnly))]),
-      EditorView.contentAttributes.of({ 'aria-label': 'Текст SKILL.md', spellcheck: 'false' }),
+      EditorView.contentAttributes.of({ 'aria-label': t('Текст SKILL.md'), spellcheck: 'false' }),
       keymap.of([{ key: 'Mod-s', run: () => { perform(() => controller.save()); return true; } }]),
       EditorView.updateListener.of(update => {
         if (update.docChanged && !syncing) controller.edit(update.state.doc.toString());
         if (update.selectionSet || update.docChanged) {
-          const point = update.state.selection.main.head, line = update.state.doc.lineAt(point); $('cursor').textContent = `Стр ${line.number}, ст ${point - line.from + 1}`;
+          const point = update.state.selection.main.head, line = update.state.doc.lineAt(point); $('cursor').textContent = t("Стр {0}, ст {1}", line.number.toLocaleString(locale()), (point - line.from + 1).toLocaleString(locale()));
           selectionMenu?.close();
           if (!syncing) scheduleChatContext();
         }
@@ -260,16 +286,21 @@ export function mountStudio({ call, chat = null, openExternal = url => window.op
     try { await operation(); }
     catch (error) { if (!controller.state.error) { controller.state.error = { code: error.code, message: error.message }; controller.emit(); } }
   }
+  function renderNameDialogLabels(action, skill) {
+    $('skill-name-title').textContent = action === 'rename' ? t('Переименовать скилл') : t('Сделать копию');
+    $('skill-name-help').textContent = action === 'rename' ? t('Название из поля name в SKILL.md.') : t('Копия всей папки будет создана в разделе «{0}».', skill.scope === 'local' ? t('Локальные') : t('Глобальные'));
+    $('skill-name-submit').textContent = action === 'rename' ? t('Переименовать') : t('Создать копию');
+  }
   function requestSkillName(action, skill) {
     return new Promise(resolve => {
       const dialog = $('skill-name-dialog');
       if (typeof dialog.showModal !== 'function') { resolve(null); return; }
-      $('skill-name-title').textContent = action === 'rename' ? 'Переименовать скилл' : 'Сделать копию';
-      $('skill-name-help').textContent = action === 'rename' ? 'Название из поля name в SKILL.md.' : `Копия всей папки будет создана в разделе «${skill.scope === 'local' ? 'Локальные' : 'Глобальные'}».`;
-      $('skill-new-name').value = action === 'rename' ? skill.name : `${skill.name} (копия)`;
-      $('skill-name-submit').textContent = action === 'rename' ? 'Переименовать' : 'Создать копию';
+      nameDialogContext = [action, skill];
+      renderNameDialogLabels(action, skill);
+      $('skill-new-name').value = action === 'rename' ? skill.name : t("{0} (копия)", skill.name);
+
       dialog.returnValue = 'cancel';
-      dialog.addEventListener('close', () => resolve(dialog.returnValue === 'submit' ? $('skill-new-name').value.trim() : null), { once:true });
+      dialog.addEventListener('close', () => { nameDialogContext = null; resolve(dialog.returnValue === 'submit' ? $('skill-new-name').value.trim() : null); }, { once:true });
       dialog.showModal(); $('skill-new-name').focus(); $('skill-new-name').select();
     });
   }
@@ -277,9 +308,10 @@ export function mountStudio({ call, chat = null, openExternal = url => window.op
     return new Promise(resolve => {
       const dialog = $('delete-skill-dialog');
       if (typeof dialog.showModal !== 'function') { resolve(false); return; }
-      $('delete-skill-name').textContent = `Удалить «${skill.name}»?`;
+      deleteDialogSkill = skill;
+      $('delete-skill-name').textContent = t("Удалить «{0}»?", skill.name);
       dialog.returnValue = 'cancel';
-      dialog.addEventListener('close', () => resolve(dialog.returnValue === 'delete'), { once:true });
+      dialog.addEventListener('close', () => { deleteDialogSkill = null; resolve(dialog.returnValue === 'delete'); }, { once:true });
       dialog.showModal(); $('delete-skill-cancel').focus();
     });
   }
@@ -317,6 +349,7 @@ export function mountStudio({ call, chat = null, openExternal = url => window.op
     }
     await perform(() => operation({ discard: choice === 'discard' }));
   }
+  on($('language'), 'change', () => perform(() => controller.setLanguage($('language').value)));
   on($('search'), 'input', () => { search = $('search').value.trim().toLocaleLowerCase(); renderList(controller.state); });
   on($('hide-system-skills'), 'change', () => { const hide = $('hide-system-skills').checked; perform(() => controller.setHideSystemSkills(hide)); });
   on($('hide-plugin-skills'), 'change', () => perform(() => controller.setHidePluginSkills($('hide-plugin-skills').checked)));

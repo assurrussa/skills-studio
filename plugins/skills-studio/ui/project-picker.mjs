@@ -1,3 +1,4 @@
+import { t } from './i18n.mjs';
 export function createProjectPicker({ trigger, popup, search, options, onSelect }) {
   const document = trigger.ownerDocument;
   const root = trigger.parentElement;
@@ -18,14 +19,14 @@ export function createProjectPicker({ trigger, popup, search, options, onSelect 
   trigger.setAttribute('aria-controls', popup.id);
   trigger.setAttribute('aria-expanded', 'false');
   popup.setAttribute('role', 'dialog');
-  popup.setAttribute('aria-label', 'Выбор проекта');
+  popup.setAttribute('aria-label', t('Выбор проекта'));
   search.setAttribute('role', 'combobox');
-  search.setAttribute('aria-label', 'Поиск проекта');
+  search.setAttribute('aria-label', t('Поиск проекта'));
   search.setAttribute('aria-autocomplete', 'list');
   search.setAttribute('aria-controls', options.id);
   search.setAttribute('aria-expanded', 'false');
   options.setAttribute('role', 'listbox');
-  options.setAttribute('aria-label', 'Проекты');
+  options.setAttribute('aria-label', t('Проекты'));
 
   function highlight(index, scroll = true) {
     active = filtered.length ? Math.max(0, Math.min(index, filtered.length - 1)) : -1;
@@ -51,9 +52,9 @@ export function createProjectPicker({ trigger, popup, search, options, onSelect 
   }
   function renderOptions() {
     const query = search.value.trim().toLocaleLowerCase();
-    filtered = [{ id: null, name: 'Только глобальные', roots: [] }, ...projects].filter(project => `${project.name} ${(project.roots || []).join(' ')}`.toLocaleLowerCase().includes(query));
+    filtered = [{ id: null, name: t('Только глобальные'), roots: [] }, ...projects].filter(project => `${project.name} ${(project.roots || []).join(' ')}`.toLocaleLowerCase().includes(query));
     options.replaceChildren();
-    if (!filtered.length) options.append(element('p', 'project-menu-empty', 'Проекты не найдены'));
+    if (!filtered.length) options.append(element('p', 'project-menu-empty', t('Проекты не найдены')));
     for (const [index, project] of filtered.entries()) {
       const option = element('button', 'project-option' + (project.id === null ? ' project-global' : ''));
       option.type = 'button'; option.tabIndex = -1;
@@ -107,11 +108,14 @@ export function createProjectPicker({ trigger, popup, search, options, onSelect 
   on(document, 'focusin', event => { if (opened && !root.contains(event.target)) close(); });
   return {
     setOptions(values, value) {
+      popup.setAttribute('aria-label', t('Выбор проекта'));
+      search.setAttribute('aria-label', t('Поиск проекта'));
+      options.setAttribute('aria-label', t('Проекты'));
       projects = values; selected = value || null;
       const current = projects.find(project => project.id === selected);
-      label.textContent = current?.name || 'Только глобальные';
-      trigger.title = current?.roots?.join('\n') || 'Показать глобальные скиллы';
-      trigger.setAttribute('aria-label', `Проект: ${label.textContent}`);
+      label.textContent = current?.name || t('Только глобальные');
+      trigger.title = current?.roots?.join('\n') || t('Показать глобальные скиллы');
+      trigger.setAttribute('aria-label', t("Проект: {0}", label.textContent));
       if (opened) renderOptions();
     },
     setDisabled(value) { trigger.disabled = Boolean(value); if (value && opened) close(); },

@@ -14,7 +14,7 @@ test('the editor shows grouped skills, filters them and edits the selected Markd
   const { mountStudio } = await import('../ui/view.mjs');
   let disk = '# Before';
   const call = async (name, args) => {
-    if (name === 'open') return { projects: [{ id:'p', name:'Project' }, { id:'q', name:'Second project', roots:['/projects/second'] }], selectedProjectId:'p', warnings:[] };
+    if (name === 'open') return { language:'ru', projects: [{ id:'p', name:'Project' }, { id:'q', name:'Second project', roots:['/projects/second'] }], selectedProjectId:'p', warnings:[] };
     if (name === 'list') return { skills:[{id:'g',name:'Global',scope:'global',source:'Personal',agentSkill:{lockfile:'/home/skills.lock.toml',source:'team/skills'},git:{repository:'/repo',trackedPath:'skills/global/SKILL.md'}},{id:'l',name:'Local',scope:'local',source:'Project',git:{repository:'/repo',trackedPath:'skills/local/SKILL.md'}},...(args.includeSystem?[{id:'sys',name:'Builtin',scope:'global',source:'Системные',readOnly:true,system:true}]:[]),...(args.includePlugins?[{id:'pa',name:'Packaged A',scope:'plugin',source:'Alpha',readOnly:true,plugin:{id:'one',name:'Alpha'}},{id:'pb',name:'Packaged B',scope:'plugin',source:'Beta',readOnly:true,plugin:{id:'two',name:'Beta'}}]:[])], warnings:[] };
     if (name === 'read') return {id:args.id,name:args.id==='g'?'Global':'Local',scope:'global',path:'/skills/SKILL.md',content:disk,revision:'r1',readOnly:false};
     if (name === 'update_preferences') return args;

@@ -45269,7 +45269,7 @@ var AppServerConnection = class extends EventEmitter {
     });
     this.child.once("error", () => this.fail(failure2("APP_SERVER_CLOSED", "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u043F\u0443\u0441\u0442\u0438\u0442\u044C App Server. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0443 CLI.")));
     this.child.once("exit", () => this.fail(failure2("APP_SERVER_CLOSED", "\u0421\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435 \u0441 App Server \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E. \u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0447\u0430\u0442 \u0437\u0430\u043D\u043E\u0432\u043E.")));
-    await this.request("initialize", { clientInfo: { name: "skills_studio", title: "Skills Studio", version: "0.2.5" } });
+    await this.request("initialize", { clientInfo: { name: "skills_studio", title: "Skills Studio", version: "0.2.6" } });
     this.write({ method: "initialized", params: {} });
   }
   write(message) {
@@ -46200,6 +46200,7 @@ function summarizeContext(skills) {
       id: skill.id,
       name: skill.name,
       source: skill.source,
+      ...skill.sourceKind ? { sourceKind: skill.sourceKind } : {},
       scope: skill.scope,
       path: skill.path,
       metadataTokens: Number.isFinite(context.metadataTokens) ? context.metadataTokens : null,
@@ -46388,7 +46389,8 @@ var SkillStore = class {
           } catch {
             readOnly = true;
           }
-          const skill = { id, ...details, canonicalPath: canonical, registrations: [registration], path, scope: root.scope, source: system ? "\u0421\u0438\u0441\u0442\u0435\u043C\u043D\u044B\u0435" : root.source, system, disabled, readOnly, validationError };
+          const sourceKind = system || root.runtimeScope || root.scope === "global" ? "label" : "name";
+          const skill = { id, ...details, canonicalPath: canonical, registrations: [registration], path, scope: root.scope, source: system ? "\u0421\u0438\u0441\u0442\u0435\u043C\u043D\u044B\u0435" : root.source, sourceKind, system, disabled, readOnly, validationError };
           skill.context = measureSkillContext(skill, content);
           if (root.plugin) skill.plugin = root.plugin;
           seen.set(id, skill);
@@ -46768,7 +46770,7 @@ var APP_URI = "ui://skills-studio/editor";
 var icon = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 4h11v3H7v13H4zM10 10h10v10H10z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m13 16 2-2 2 2m-2-2v5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>');
 var success2 = (data) => ({ content: [], structuredContent: data });
 function createServer({ store = new SkillStore(), readUI = () => readFile6(new URL("./assets/app.html", import.meta.url), "utf8"), reveal = revealInFinder, copyPath: copyPath2 = copyPath, openTerminal: openTerminal2 = openTerminal, chat = new ChatService({ stateDir: store.stateDir, codexHome: store.codexHome }) } = {}) {
-  const server = new McpServer({ name: "skills-studio", title: "Skills Studio", version: "0.2.5", icons: [{ src: icon, mimeType: "image/svg+xml", sizes: ["any"] }] });
+  const server = new McpServer({ name: "skills-studio", title: "Skills Studio", version: "0.2.6", icons: [{ src: icon, mimeType: "image/svg+xml", sizes: ["any"] }] });
   const health = new SkillHealth({ stateDir: store.stateDir });
   const inspect = async (skill) => ({ ...skill, health: await health.inspect(skill) });
   const preferenceFile = join9(store.stateDir, "preferences.json");
@@ -46780,7 +46782,7 @@ function createServer({ store = new SkillStore(), readUI = () => readFile6(new U
     } catch {
     }
     const hideSystemSkills = typeof data?.hideSystemSkills === "boolean" ? data.hideSystemSkills : true;
-    return { selectedProjectId: typeof data?.selectedProjectId === "string" ? data.selectedProjectId : null, hideSystemSkills, hidePluginSkills: data.hidePluginSkills === true, collapsedSections: Array.isArray(data?.collapsedSections) ? [...new Set(data.collapsedSections.filter((x) => typeof x === "string"))] : [] };
+    return { selectedProjectId: typeof data?.selectedProjectId === "string" ? data.selectedProjectId : null, language: data?.language === "ru" ? "ru" : "en", hideSystemSkills, hidePluginSkills: data.hidePluginSkills === true, collapsedSections: Array.isArray(data?.collapsedSections) ? [...new Set(data.collapsedSections.filter((x) => typeof x === "string"))] : [] };
   }
   function writePreferences(patch) {
     const operation = preferenceQueue.then(async () => {
@@ -46808,7 +46810,7 @@ function createServer({ store = new SkillStore(), readUI = () => readFile6(new U
   function tool(name, title, inputSchema, run, { readOnly = true, destructive = !readOnly, entrypoint = false, openWorld = false } = {}) {
     server.registerTool("skills_studio." + name, {
       title,
-      description: entrypoint ? "\u041E\u0442\u043A\u0440\u044B\u0442\u044C Skills Studio: \u043F\u0430\u043D\u0435\u043B\u044C \u043A\u0430\u0442\u0430\u043B\u043E\u0433\u0430, \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u044F \u0438 \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0430 \u043D\u0430\u0432\u044B\u043A\u043E\u0432 Codex." : title,
+      description: entrypoint ? "Open Skills Studio: a catalogue, availability overview and editor for Codex skills." : title,
       inputSchema,
       annotations: { readOnlyHint: readOnly, destructiveHint: destructive, openWorldHint: openWorld },
       _meta: {
@@ -46830,16 +46832,16 @@ function createServer({ store = new SkillStore(), readUI = () => readFile6(new U
     if (!catalog.projects.some((p) => p.id === selectedProjectId)) selectedProjectId = null;
     return { ...catalog, ...preferences, selectedProjectId };
   }, { entrypoint: true });
-  tool("projects", "\u0421\u043F\u0438\u0441\u043E\u043A \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0445 \u043F\u0440\u043E\u0435\u043A\u0442\u043E\u0432 Codex", {}, () => store.listProjects());
+  tool("projects", "List local Codex projects", {}, () => store.listProjects());
   const sessionId = external_exports.string().uuid();
-  tool("chat_open", "\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0431\u043E\u043A\u043E\u0432\u043E\u0439 \u0447\u0430\u0442 \u043A \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u043E\u043C\u0443 App Server", { skillId: external_exports.string().min(1).max(200).optional() }, (args) => chat.open(args), { readOnly: false });
-  tool("chat_poll", "\u041F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0438 \u043E\u0442\u0432\u0435\u0442\u044B \u0431\u043E\u043A\u043E\u0432\u043E\u0433\u043E \u0447\u0430\u0442\u0430", { sessionId, afterRevision: external_exports.number().int().nonnegative().optional() }, (args) => chat.poll(args));
-  tool("chat_login", "\u0412\u043E\u0439\u0442\u0438 \u0447\u0435\u0440\u0435\u0437 ChatGPT \u0434\u043B\u044F \u0431\u043E\u043A\u043E\u0432\u043E\u0433\u043E \u0447\u0430\u0442\u0430", { sessionId }, (args) => chat.login(args), { readOnly: false, openWorld: true });
-  tool("chat_send", "\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u0432\u043E\u043F\u0440\u043E\u0441 \u0438 \u0441\u043D\u0438\u043C\u043E\u043A \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0430 \u043F\u043E\u043C\u043E\u0449\u043D\u0438\u043A\u0443", { sessionId, requestId: external_exports.string().min(1).max(100), question: external_exports.string().min(1).max(1e5), model: external_exports.string().max(200).optional(), effort: external_exports.string().min(1).max(100).optional(), document: external_exports.object({ skill: external_exports.object({ id: external_exports.string(), name: external_exports.string(), path: external_exports.string() }).passthrough(), versions: external_exports.object({ opened: external_exports.string().max(2 * 1024 * 1024), saved: external_exports.string().max(2 * 1024 * 1024), editor: external_exports.string().max(2 * 1024 * 1024) }) }).passthrough().nullable() }, (args) => chat.send(args), { readOnly: false, openWorld: true });
-  tool("chat_stop", "\u041E\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043E\u0442\u0432\u0435\u0442 \u043F\u043E\u043C\u043E\u0449\u043D\u0438\u043A\u0430", { sessionId }, (args) => chat.stop(args), { readOnly: false });
-  tool("chat_reset", "\u041D\u0430\u0447\u0430\u0442\u044C \u043D\u043E\u0432\u044B\u0439 \u0440\u0430\u0437\u0433\u043E\u0432\u043E\u0440 \u0432 \u0431\u043E\u043A\u043E\u0432\u043E\u0439 \u043F\u0430\u043D\u0435\u043B\u0438", { sessionId }, (args) => chat.reset(args), { readOnly: false });
-  tool("chat_close", "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u0441\u0435\u0441\u0441\u0438\u044E \u0431\u043E\u043A\u043E\u0432\u043E\u0433\u043E \u0447\u0430\u0442\u0430", { sessionId }, (args) => chat.dispose(args), { readOnly: false });
-  tool("list", "\u0421\u043F\u0438\u0441\u043E\u043A \u043D\u0430\u0432\u044B\u043A\u043E\u0432 \u0438 \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u044F Codex", { projectId, includePlugins, includeSystem, forceReload: external_exports.boolean().optional() }, async (args) => {
+  tool("chat_open", "Connect the side chat to the local App Server", { skillId: external_exports.string().min(1).max(200).optional() }, (args) => chat.open(args), { readOnly: false });
+  tool("chat_poll", "Read side chat state and replies", { sessionId, afterRevision: external_exports.number().int().nonnegative().optional() }, (args) => chat.poll(args));
+  tool("chat_login", "Sign in with ChatGPT for the side chat", { sessionId }, (args) => chat.login(args), { readOnly: false, openWorld: true });
+  tool("chat_send", "Send a question and editor snapshot to the assistant", { sessionId, requestId: external_exports.string().min(1).max(100), question: external_exports.string().min(1).max(1e5), model: external_exports.string().max(200).optional(), effort: external_exports.string().min(1).max(100).optional(), document: external_exports.object({ skill: external_exports.object({ id: external_exports.string(), name: external_exports.string(), path: external_exports.string() }).passthrough(), versions: external_exports.object({ opened: external_exports.string().max(2 * 1024 * 1024), saved: external_exports.string().max(2 * 1024 * 1024), editor: external_exports.string().max(2 * 1024 * 1024) }) }).passthrough().nullable() }, (args) => chat.send(args), { readOnly: false, openWorld: true });
+  tool("chat_stop", "Stop the assistant response", { sessionId }, (args) => chat.stop(args), { readOnly: false });
+  tool("chat_reset", "Start a new side chat conversation", { sessionId }, (args) => chat.reset(args), { readOnly: false });
+  tool("chat_close", "Close the side chat session", { sessionId }, (args) => chat.dispose(args), { readOnly: false });
+  tool("list", "List skills and Codex availability", { projectId, includePlugins, includeSystem, forceReload: external_exports.boolean().optional() }, async (args) => {
     const complete = await store.listSkills(args.projectId, { ...args, includePlugins: true, includeSystem: true });
     const context = { ...summarizeContext(complete.skills), checkedAt: (/* @__PURE__ */ new Date()).toISOString() };
     const catalog = { ...complete, skills: complete.skills.filter((skill) => (args.includePlugins || skill.scope !== "plugin") && (args.includeSystem !== false || !skill.system)) };
@@ -46858,45 +46860,45 @@ function createServer({ store = new SkillStore(), readUI = () => readFile6(new U
     }
     return { ...catalog, skills, context };
   });
-  tool("read", "\u041F\u0440\u043E\u0447\u0438\u0442\u0430\u0442\u044C SKILL.md", { id: skillId, projectId, includePlugins, includeSystem }, async (args) => inspect(await store.readSkill(args)));
-  tool("save", "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C SKILL.md \u0441 \u0440\u0435\u0437\u0435\u0440\u0432\u043D\u043E\u0439 \u043A\u043E\u043F\u0438\u0435\u0439", { id: skillId, projectId, includePlugins, includeSystem, revision: external_exports.string().regex(/^[a-f0-9]{64}$/), content: external_exports.string().max(2 * 1024 * 1024) }, async (args) => {
+  tool("read", "Read SKILL.md", { id: skillId, projectId, includePlugins, includeSystem }, async (args) => inspect(await store.readSkill(args)));
+  tool("save", "Save SKILL.md with a backup", { id: skillId, projectId, includePlugins, includeSystem, revision: external_exports.string().regex(/^[a-f0-9]{64}$/), content: external_exports.string().max(2 * 1024 * 1024) }, async (args) => {
     const result = await store.saveSkill(args);
     return { ...result, health: await health.inspect(await store.readSkill(args)) };
   }, { readOnly: false });
-  tool("manage", "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0441\u043A\u0438\u043B\u043B, \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0438\u043B\u0438 \u0432\u044B\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0441 \u0440\u0435\u0437\u0435\u0440\u0432\u043D\u043E\u0439 \u043A\u043E\u043F\u0438\u0435\u0439", { id: skillId, projectId, includePlugins, includeSystem, revision: external_exports.string().regex(/^[a-f0-9]{64}$/), action: external_exports.enum(["rename", "copy", "move", "delete", "enable", "disable"]), name: external_exports.string().min(1).max(200).optional(), scope: external_exports.enum(["global", "local"]).optional() }, (args) => store.manageSkill(args.action, args), { readOnly: false });
+  tool("manage", "Manage a skill with backups", { id: skillId, projectId, includePlugins, includeSystem, revision: external_exports.string().regex(/^[a-f0-9]{64}$/), action: external_exports.enum(["rename", "copy", "move", "delete", "enable", "disable"]), name: external_exports.string().min(1).max(200).optional(), scope: external_exports.enum(["global", "local"]).optional() }, (args) => store.manageSkill(args.action, args), { readOnly: false });
   const skillArgs = { id: skillId, projectId, includePlugins, includeSystem };
-  tool("copy_path", "\u0421\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0438\u0441\u0445\u043E\u0434\u043D\u044B\u0439 \u043F\u0443\u0442\u044C SKILL.md", skillArgs, async (args) => {
+  tool("copy_path", "Copy the original SKILL.md path", skillArgs, async (args) => {
     const { canonical } = await store.resolveSkill(args);
     await copyPath2(canonical);
     return { path: canonical };
   }, { readOnly: false, destructive: false });
-  tool("open_terminal", "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043F\u0430\u043F\u043A\u0443 \u0438\u0441\u0445\u043E\u0434\u043D\u043E\u0433\u043E \u043D\u0430\u0432\u044B\u043A\u0430 \u0432 Terminal", skillArgs, async (args) => {
+  tool("open_terminal", "Open the original skill folder in Terminal", skillArgs, async (args) => {
     const { canonical } = await store.resolveSkill(args);
     const path = dirname5(canonical);
     await openTerminal2(path);
     return { path };
   }, { readOnly: false, destructive: false });
-  tool("set_enabled", "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u043E\u0441\u0442\u044C \u043D\u0430\u0432\u044B\u043A\u0430 \u0432 Codex \u0431\u0435\u0437 \u043F\u0435\u0440\u0435\u043C\u0435\u0449\u0435\u043D\u0438\u044F \u0444\u0430\u0439\u043B\u043E\u0432", { ...skillArgs, enabled: external_exports.boolean(), registrationPath: external_exports.string().min(1).optional() }, (args) => store.setEnabled(args), { readOnly: false });
-  tool("check_source", "\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A \u043D\u0430\u0432\u044B\u043A\u0430 \u0431\u0435\u0437 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F \u0444\u0430\u0439\u043B\u043E\u0432", skillArgs, async (args) => {
+  tool("set_enabled", "Change Codex skill availability without moving files", { ...skillArgs, enabled: external_exports.boolean(), registrationPath: external_exports.string().min(1).optional() }, (args) => store.setEnabled(args), { readOnly: false });
+  tool("check_source", "Check the skill source without updating files", skillArgs, async (args) => {
     const skill = await store.readSkill(args);
     await health.checkSource(skill);
     return { health: await health.inspect(skill) };
   }, { readOnly: false, openWorld: true });
-  tool("review_save", "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 \u0440\u0443\u0447\u043D\u043E\u0433\u043E \u0440\u0435\u0432\u044C\u044E \u043D\u0430\u0432\u044B\u043A\u0430", { ...skillArgs, fingerprint: external_exports.string().regex(/^[a-f0-9]{64}$/), note: external_exports.string().min(1).max(1e4), evidenceUrls: external_exports.array(external_exports.string().url().max(2e3)).max(30) }, async (args) => {
+  tool("review_save", "Save a manual skill content review", { ...skillArgs, fingerprint: external_exports.string().regex(/^[a-f0-9]{64}$/), note: external_exports.string().min(1).max(1e4), evidenceUrls: external_exports.array(external_exports.string().url().max(2e3)).max(30) }, async (args) => {
     const skill = await store.readSkill(args);
     await health.saveReview(skill, args);
     return { health: await health.inspect(skill) };
   }, { readOnly: false });
-  tool("reveal", "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C SKILL.md \u0432 Finder", { id: skillId, projectId, includePlugins, includeSystem }, async (args) => {
+  tool("reveal", "Reveal SKILL.md in Finder", { id: skillId, projectId, includePlugins, includeSystem }, async (args) => {
     const { skill } = await store.resolveSkill(args);
     await reveal(skill.path);
     return { path: skill.path };
   });
-  tool("select_project", "\u0417\u0430\u043F\u043E\u043C\u043D\u0438\u0442\u044C \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0439 \u043F\u0440\u043E\u0435\u043A\u0442 \u0432 Skills Studio", { projectId }, async (args) => {
+  tool("select_project", "Save the selected Skills Studio project", { projectId }, async (args) => {
     if (args.projectId && !(await store.listProjects()).projects.some((p) => p.id === args.projectId)) throw Object.assign(new Error("\u041F\u0440\u043E\u0435\u043A\u0442 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D."), { code: "PROJECT_NOT_FOUND" });
     return writePreferences({ selectedProjectId: args.projectId || null });
   }, { readOnly: false });
-  tool("update_preferences", "\u0417\u0430\u043F\u043E\u043C\u043D\u0438\u0442\u044C \u0444\u0438\u043B\u044C\u0442\u0440 \u0441\u0438\u0441\u0442\u0435\u043C\u043D\u044B\u0445 \u0441\u043A\u0438\u043B\u043B\u043E\u0432 \u0438 \u0441\u0432\u0451\u0440\u043D\u0443\u0442\u044B\u0435 \u0440\u0430\u0437\u0434\u0435\u043B\u044B", { hideSystemSkills: external_exports.boolean().optional(), hidePluginSkills: external_exports.boolean().optional(), collapsedSections: external_exports.array(external_exports.string().min(1).max(300)).max(1e3).optional() }, (args) => {
+  tool("update_preferences", "Save interface language, visibility filters and collapsed sections", { language: external_exports.enum(["en", "ru"]).optional(), hideSystemSkills: external_exports.boolean().optional(), hidePluginSkills: external_exports.boolean().optional(), collapsedSections: external_exports.array(external_exports.string().min(1).max(300)).max(1e3).optional() }, (args) => {
     return writePreferences(args);
   }, { readOnly: false });
   server.registerResource("skills-studio-editor", APP_URI, { mimeType: "text/html;profile=mcp-app" }, async () => ({ contents: [{

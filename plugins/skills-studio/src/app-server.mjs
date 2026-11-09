@@ -55,7 +55,7 @@ export class AppServerConnection extends EventEmitter {
     this.child.stdin.on('error',()=>{});
     this.child.once('error',()=>this.fail(failure('APP_SERVER_CLOSED','Не удалось запустить App Server. Проверьте установку CLI.')));
     this.child.once('exit',()=>this.fail(failure('APP_SERVER_CLOSED','Соединение с App Server завершено. Откройте чат заново.')));
-    await this.request('initialize',{clientInfo:{name:'skills_studio',title:'Skills Studio',version:'0.2.5'}});
+    await this.request('initialize',{clientInfo:{name:'skills_studio',title:'Skills Studio',version:'0.2.6'}});
     this.write({method:'initialized',params:{}});
   }
   write(message) {

@@ -32,7 +32,7 @@ test('selection context menu sends the chosen fragment without a layout bar and 
     throw Error(name);
   },{pollMs:100000});
   const ui = mountStudio({ chat, call: async (name, args) => {
-    if (name === 'open') return { projects: [], selectedProjectId: null, warnings: [] };
+    if (name === 'open') return { language:'ru', projects: [], selectedProjectId: null, warnings: [] };
     if (name === 'list') return { skills: [{ id:'one', name:'Example', scope:'global' },{id:'two',name:'Second',scope:'global'}], warnings: [] };
     if (name === 'read') return { id:args.id, name:'Example', path:'/skills/example/SKILL.md', content:'# Original\nold\n', revision:'r1', readOnly:false };
     throw new Error(`Unexpected backend write: ${name}`);
@@ -97,7 +97,7 @@ test('selection context menu sends the chosen fragment without a layout bar and 
     assert.equal(question.value,'');assert.equal(win.document.querySelectorAll('.chat-message').length,0);
     assert.equal(modelTrigger.value,'fixture');assert.equal(effortTrigger.value,'');
     effortTrigger.click();
-    assert.deepEqual([...win.document.querySelectorAll('#chat-effort-options [role=option]')].map(option=>option.textContent),['Авто','Medium']);
+    assert.deepEqual([...win.document.querySelectorAll('#chat-effort-options [role=option]')].map(option=>option.textContent),['Авто','Среднее']);
     question.focus();question.value='Question for two';win.document.querySelector('#ask-send').click();await new Promise(r=>setImmediate(r));
     question.value='Draft for two';
     await ui.controller.open('one');await new Promise(r=>setImmediate(r));
